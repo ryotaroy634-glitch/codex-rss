@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { REFRESH_BATCH_IDS } from "@/lib/refresh/batches";
+import { combineRefreshSummaries } from "@/lib/refresh/summary";
 import { formatPacificDate } from "@/lib/utils";
 import { ArticleListItem, RefreshRunSummary, SourceRecord } from "@/types";
 
@@ -115,15 +117,24 @@ export function ArticlesDashboard() {
     setError(null);
 
     try {
-      const response = await fetch("/api/refresh", {
-        method: "POST"
-      });
+      const summaries: RefreshRunSummary[] = [];
 
-      if (!response.ok) {
-        throw new Error("Refresh failed");
+      for (const batchId of REFRESH_BATCH_IDS) {
+        const response = await fetch(`/api/refresh?batch=${batchId}`, {
+          method: "POST"
+        });
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(payload?.error ?? `Refresh failed on batch ${batchId}`);
+        }
+
+        summaries.push((await response.json()) as RefreshRunSummary);
       }
 
-      const summary = (await response.json()) as RefreshRunSummary;
+      const summary = combineRefreshSummaries(summaries);
       setRefreshSummary(summary);
       await loadArticles();
       await loadSources();
@@ -188,7 +199,7 @@ export function ArticlesDashboard() {
               {refreshing ? "Refreshing..." : "Run refresh now"}
             </button>
             <p className="text-sm text-[color:var(--muted)]">
-              Cron runs every 30 minutes and respects the PT 5:00-22:00 window.
+              Cron runs every 30 minutes in 4 batches and respects the PT 5:00-22:00 window.
             </p>
           </div>
         </div>

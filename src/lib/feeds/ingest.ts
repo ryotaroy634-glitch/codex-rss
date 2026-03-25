@@ -242,7 +242,7 @@ async function refreshSingleSource(
 
 interface RefreshOptions {
   force?: boolean;
-  sourceSlugs?: string[];
+  sourceSlugs?: readonly string[];
   onSourceStart?: (slug: string) => void;
   onSourceComplete?: (result: RefreshSourceResult) => void;
 }

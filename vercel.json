@@ -1,7 +1,19 @@
 {
   "crons": [
     {
-      "path": "/api/cron/refresh",
+      "path": "/api/cron/refresh/1",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh/2",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh/3",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh/4",
       "schedule": "*/30 * * * *"
     }
   ]
