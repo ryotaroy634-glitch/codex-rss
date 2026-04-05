@@ -197,3 +197,45 @@ export async function markArticleRead(id: number, isRead: boolean) {
 
   return rows.length > 0;
 }
+
+export async function getHealthSnapshot() {
+  await ensureSources();
+  const sql = getSql();
+
+  const [counts] = await sql<
+    {
+      article_count: number;
+      active_source_count: number;
+      total_source_count: number;
+    }[]
+  >`
+    select
+      (select count(*)::int from articles a inner join sources s on s.id = a.source_id where s.is_active = true) as article_count,
+      (select count(*)::int from sources where is_active = true) as active_source_count,
+      (select count(*)::int from sources) as total_source_count
+  `;
+
+  const recentLogs = await sql<
+    {
+      source_slug: string;
+      status: string;
+      inserted_count: number;
+      error_message: string | null;
+      created_at: string;
+    }[]
+  >`
+    select distinct on (source_slug)
+      source_slug,
+      status,
+      inserted_count,
+      error_message,
+      created_at
+    from refresh_logs
+    order by source_slug, created_at desc
+  `;
+
+  return {
+    ...counts,
+    recentLogs
+  };
+}

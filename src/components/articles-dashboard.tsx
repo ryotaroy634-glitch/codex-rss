@@ -13,6 +13,26 @@ interface ArticlesResponse {
   pageSize: number;
 }
 
+interface HealthResponse {
+  ok: boolean;
+  appUrl: string | null;
+  database: {
+    host: string;
+    database: string | null;
+  } | null;
+  article_count?: number;
+  active_source_count?: number;
+  total_source_count?: number;
+  recentLogs?: Array<{
+    source_slug: string;
+    status: string;
+    inserted_count: number;
+    error_message: string | null;
+    created_at: string;
+  }>;
+  error?: string;
+}
+
 const PAGE_SIZE = 20;
 
 export function ArticlesDashboard() {
@@ -23,6 +43,7 @@ export function ArticlesDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
   const [refreshSummary, setRefreshSummary] = useState<RefreshRunSummary | null>(null);
   const [filters, setFilters] = useState({
     source: "",
@@ -44,6 +65,7 @@ export function ArticlesDashboard() {
 
   useEffect(() => {
     void loadSources();
+    void loadHealth();
   }, []);
 
   useEffect(() => {
@@ -63,6 +85,16 @@ export function ArticlesDashboard() {
       const message =
         requestError instanceof Error ? requestError.message : "Failed to load sources";
       setError(message);
+    }
+  }
+
+  async function loadHealth() {
+    try {
+      const response = await fetch("/api/health", { cache: "no-store" });
+      const data = (await response.json()) as HealthResponse;
+      setHealth(data);
+    } catch {
+      setHealth(null);
     }
   }
 
@@ -97,7 +129,8 @@ export function ArticlesDashboard() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to load articles");
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Failed to load articles");
       }
 
       const data = (await response.json()) as ArticlesResponse;
@@ -138,6 +171,7 @@ export function ArticlesDashboard() {
       setRefreshSummary(summary);
       await loadArticles();
       await loadSources();
+      await loadHealth();
     } catch (requestError) {
       const message =
         requestError instanceof Error ? requestError.message : "Refresh failed";
@@ -286,6 +320,27 @@ export function ArticlesDashboard() {
       {error ? (
         <section className="rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
           {error}
+        </section>
+      ) : null}
+
+      {!loading && !items.length && health ? (
+        <section className="rounded-[2rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          <p>
+            No articles are currently visible. Database host:{" "}
+            <strong>{health.database?.host ?? "unknown"}</strong>. Active sources:{" "}
+            <strong>{health.active_source_count ?? 0}</strong>. Stored articles:{" "}
+            <strong>{health.article_count ?? 0}</strong>.
+          </p>
+          {health.recentLogs?.some((log) => log.status !== "success") ? (
+            <p className="mt-2">
+              Recent failing sources:{" "}
+              {health.recentLogs
+                ?.filter((log) => log.status !== "success")
+                .slice(0, 4)
+                .map((log) => `${log.source_slug} (${log.status})`)
+                .join(", ")}
+            </p>
+          ) : null}
         </section>
       ) : null}
 
